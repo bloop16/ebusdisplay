@@ -149,19 +149,22 @@ class VMobilAPI:
         if self.use_scraper and self.scraper:
             try:
                 raw_deps = self.scraper.get_departures(stop_id, limit)
-                departures = [
-                    Departure(
-                        line=dep['line'],
-                        destination=dep['destination'],
-                        departure_time=dep['departure_time'],
-                        stop_name=dep['stop_name'],
-                        delay_minutes=dep.get('delay_minutes')
-                    )
-                    for dep in raw_deps
-                ]
-                return departures
+                if not raw_deps:
+                    logger.info(f"No live scraper departures for stop {stop_id}")
+                else:
+                    departures = [
+                        Departure(
+                            line=dep['line'],
+                            destination=dep['destination'],
+                            departure_time=dep['departure_time'],
+                            stop_name=dep['stop_name'],
+                            delay_minutes=dep.get('delay_minutes')
+                        )
+                        for dep in raw_deps
+                    ]
+                    return departures
             except Exception as e:
-                logger.warning(f"Web scraper failed, falling back to mock: {e}")
+                logger.warning(f"Web scraper failed, falling back to GTFS: {e}")
         
         # Fallback 1: GTFS Soll-Abfahrten
         if self.use_gtfs and self.gtfs and stop_id:
@@ -182,19 +185,8 @@ class VMobilAPI:
             except Exception as e:
                 logger.warning(f"GTFS fallback failed: {e}")
 
-        # Fallback 2: Statische Mock-Daten
-        try:
-            # Use stop name if provided, otherwise resolve ID
-            name = stop_name if stop_name else self._resolve_stop_id(stop_id)
-            
-            # Fetch departure board
-            departures = self._fetch_departure_board(name, limit)
-            return departures
-            
-        except requests.Timeout:
-            raise VMobilAPIError(f"Departure fetch timeout after {self.timeout}s")
-        except requests.RequestException as e:
-            raise VMobilAPIError(f"Departure fetch failed: {e}")
+        logger.warning(f"No live or GTFS departures available for stop {stop_id or stop_name}")
+        return []
     
     def _resolve_stop_id(self, stop_id: str) -> str:
         """Convert stop ID to name (for scraping)"""
@@ -214,42 +206,6 @@ class VMobilAPI:
             'test_stop': 'Test Stop'
         }
         return id_map.get(stop_id, stop_id)
-    
-    def _fetch_departure_board(self, stop_name: str, limit: int) -> List[Departure]:
-        """
-        Scrape departure board from vmobil.at
-        
-        This is the core scraping logic - will be refined during testing
-        """
-        url = f"{self.BASE_URL}/de/routen"
-        
-        # For now: return mock data for testing
-        # TODO: Implement actual scraping once we analyze page structure
-        now = datetime.now()
-        
-        mock_departures = [
-            Departure(
-                line="1",
-                destination="Bregenz Bahnhof",
-                departure_time=now + timedelta(minutes=5),
-                stop_name=stop_name
-            ),
-            Departure(
-                line="5",
-                destination="Dornbirn",
-                departure_time=now + timedelta(minutes=12),
-                stop_name=stop_name,
-                delay_minutes=2
-            ),
-            Departure(
-                line="3",
-                destination="Bludenz",
-                departure_time=now + timedelta(minutes=18),
-                stop_name=stop_name
-            ),
-        ]
-        
-        return mock_departures[:limit]
     
     def _parse_time(self, time_str: str) -> datetime:
         """

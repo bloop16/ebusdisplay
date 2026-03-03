@@ -75,8 +75,7 @@ class VMobilWebScraper:
             stop_name = self.STOPS_DB.get(stop_id, stop_id)
             
             # VMobil nutzt ein JavaScript-Frontend
-            # Fallback: Für lokale Tests Mock-Daten
-            # Für echten Einsatz: Selenium/Playwright
+            # Ziel: nur Live-Daten, kein Mock-Fallback
             
             departures = self._fetch_via_heuristic(stop_id, stop_name, limit)
             
@@ -88,11 +87,11 @@ class VMobilWebScraper:
             
         except Exception as e:
             logger.error(f"Error fetching departures: {e}")
-            return self._get_mock_departures(stop_name, limit)
+            return []
     
     def _fetch_via_heuristic(self, stop_id: str, stop_name: str, limit: int) -> list:
         """
-        Versuche echte Daten zu holen, fallback auf Mock
+        Versuche echte Daten zu holen
         
         Hinweis: VMobil hat wahrscheinlich JavaScript-Rendering
         Echte Lösung: Verwende Selenium/Playwright auf Pi
@@ -127,9 +126,8 @@ class VMobilWebScraper:
         except Exception as e:
             logger.warning(f"HTML parsing failed: {e}")
         
-        # Fallback: Mock-Daten für Debugging/Testing
-        logger.warning(f"Using mock data for {stop_name}")
-        return self._get_mock_departures(stop_name, limit)
+        logger.warning(f"No live departures available for {stop_name}")
+        return []
     
     def _parse_departures(self, data: list, stop_name: str) -> list:
         """Parse API response"""
@@ -177,60 +175,6 @@ class VMobilWebScraper:
                 logger.debug(f"Error parsing row: {e}")
         
         return departures
-    
-    def _get_mock_departures(self, stop_name: str, limit: int) -> list:
-        """Generate realistic mock data for Vorarlberg"""
-        import random
-        
-        # Echte Vorarlberg ÖV Liniennummern
-        all_lines = ['1', '3', '5', '6', '7', '9', '10', '11', '12', '14', '15', '16', '20', '21', '22', 'N8', 'NT']
-        
-        # Realistische Ziele basierend auf Haltestelle
-        destination_map = {
-            'Bregenz Bahnhof': [
-                'Dornbirn Zentrum', 'Feldkirch Bahnhof', 'Lustenau', 
-                'Hard', 'Lochau', 'Bregenz Hafen', 'Höchst'
-            ],
-            'Rankweil Konkordiaplatz': [
-                'Feldkirch Bahnhof', 'Bregenz Bahnhof', 'Dornbirn Zentrum',
-                'Rankweil Bahnhof', 'Bludenz Bahnhof', 'Meiningen'
-            ],
-            'Dornbirn Bahnhof': [
-                'Feldkirch Bahnhof', 'Bregenz Bahnhof', 'Dornbirn Zentrum',
-                'Lustenau', 'Bludenz', 'Lustenau Zentrum'
-            ],
-            'Feldkirch Bahnhof': [
-                'Dornbirn Zentrum', 'Bregenz Bahnhof', 'Bludenz Bahnhof',
-                'Rankweil', 'Ludwigsburg', 'Schaan'
-            ],
-        }
-        
-        destinations = destination_map.get(stop_name, [
-            'Bregenz', 'Feldkirch', 'Dornbirn', 'Rankweil', 
-            'Bludenz', 'Hard', 'Lustenau'
-        ])
-        
-        departures = []
-        now = datetime.now()
-        
-        # Realistische Abfahrtszeiten (nicht zufällig verteilt)
-        time_patterns = [3, 7, 12, 18, 25, 32, 40, 48, 56]  # Typische Abstände
-        
-        for i in range(min(limit, len(time_patterns))):
-            dep_time = now + timedelta(minutes=time_patterns[i])
-            
-            # 80% pünktlich, 20% mit Verspätung (1-5 min)
-            delay = random.choice([None, None, None, None, 2, 3]) if random.random() < 0.2 else None
-            
-            departures.append({
-                'line': random.choice(all_lines),
-                'destination': random.choice(destinations),
-                'departure_time': dep_time,
-                'stop_name': stop_name,
-                'delay_minutes': delay
-            })
-        
-        return sorted(departures, key=lambda x: x['departure_time'])
     
     def _parse_time(self, time_str: str) -> datetime:
         """Parse time string"""
