@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Display Setup</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .search-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .results {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            display: none;
+        }
+        .result-item {
+            padding: 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s;
+        }
+        .result-item:hover {
+            background: #f8f8f8;
+        }
+        .result-item:last-child {
+            border-bottom: none;
+        }
+        .selected-stops {
+            margin: 20px 0;
+        }
+        .stop-chip {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            margin: 4px;
+            font-size: 14px;
+        }
+        .stop-chip button {
+            background: none;
+            border: none;
+            color: white;
+            margin-left: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #5568d3;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚍 Bus Display</h1>
+        <p class="subtitle">Konfiguriere deine Bushaltestellen</p>
+        
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Haltestelle suchen..." autocomplete="off">
+            <div class="results" id="results"></div>
+        </div>
+        
+        <div class="selected-stops">
+            <h3>Ausgewählte Haltestellen:</h3>
+            <div id="selectedStops"></div>
+        </div>
+        
+        <button class="btn" onclick="saveConfig()">Speichern</button>
+        
+        <div class="status" id="status"></div>
+    </div>
+    
+    <script>
+        let selectedStops = [];
+        let searchTimeout;
+        
+        // Load existing config
+        fetch('/api/config')
+            .then(r => r.json())
+            .then(data => {
+                selectedStops = data.stops || [];
+                updateSelectedStops();
+            });
+        
+        // Search stops
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const query = e.target.value;
+            
+            if (query.length < 2) {
+                document.getElementById('results').style.display = 'none';
+                return;
+            }
+            
+            searchTimeout = setTimeout(() => {
+                fetch(`/api/stops?q=${encodeURIComponent(query)}`)
+                    .then(r => r.json())
+                    .then(stops => {
+                        const results = document.getElementById('results');
+                        results.innerHTML = '';
+                        
+                        if (stops.length === 0) {
+                            results.innerHTML = '<div class="result-item">Keine Ergebnisse</div>';
+                        } else {
+                            stops.forEach(stop => {
+                                const div = document.createElement('div');
+                                div.className = 'result-item';
+                                div.textContent = stop.name;
+                                div.onclick = () => addStop(stop);
+                                results.appendChild(div);
+                            });
+                        }
+                        
+                        results.style.display = 'block';
+                    });
+            }, 300);
+        });
+        
+        function addStop(stop) {
+            if (!selectedStops.find(s => s.id === stop.id)) {
+                selectedStops.push(stop);
+                updateSelectedStops();
+            }
+            document.getElementById('searchInput').value = '';
+            document.getElementById('results').style.display = 'none';
+        }
+        
+        function removeStop(stopId) {
+            selectedStops = selectedStops.filter(s => s.id !== stopId);
+            updateSelectedStops();
+        }
+        
+        function updateSelectedStops() {
+            const container = document.getElementById('selectedStops');
+            container.innerHTML = '';
+            
+            selectedStops.forEach(stop => {
+                const chip = document.createElement('span');
+                chip.className = 'stop-chip';
+                chip.innerHTML = `${stop.name} <button onclick="removeStop('${stop.id}')">×</button>`;
+                container.appendChild(chip);
+            });
+        }
+        
+        function saveConfig() {
+            const config = { stops: selectedStops };
+            
+            fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            })
+            .then(r => r.json())
+            .then(data => {
+                showStatus('Konfiguration gespeichert!', 'success');
+            })
+            .catch(err => {
+                showStatus('Fehler beim Speichern', 'error');
+            });
+        }
+        
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
