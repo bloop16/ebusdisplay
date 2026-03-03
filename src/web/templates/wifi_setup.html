@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiFi Setup - Bus Display</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .status-box {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .status-box.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-box.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        input[type="text"],
+        input[type="password"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 16px;
+            transition: border 0.3s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #5568d3;
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .message {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .link {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .link a {
+            color: #667eea;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📡 WiFi Setup</h1>
+        <p class="subtitle">Connect to your WiFi network</p>
+        
+        <div class="status-box" id="statusBox">
+            <strong>Status:</strong> <span id="statusText">Checking...</span>
+        </div>
+        
+        <form id="wifiForm">
+            <label for="ssid">WiFi Network (SSID)</label>
+            <input type="text" id="ssid" name="ssid" required placeholder="Your WiFi name">
+            
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required placeholder="WiFi password">
+            
+            <button type="submit" class="btn" id="connectBtn">Connect</button>
+        </form>
+        
+        <div class="message" id="message"></div>
+        
+        <div class="link">
+            <a href="/">← Back to Bus Stop Setup</a>
+        </div>
+    </div>
+    
+    <script>
+        // Check WiFi status
+        fetch('/api/wifi/status')
+            .then(r => r.json())
+            .then(data => {
+                const statusBox = document.getElementById('statusBox');
+                const statusText = document.getElementById('statusText');
+                
+                if (data.connected) {
+                    statusBox.className = 'status-box connected';
+                    statusText.textContent = `Connected to ${data.ssid}`;
+                } else {
+                    statusBox.className = 'status-box disconnected';
+                    statusText.textContent = 'Not connected';
+                }
+            });
+        
+        // Connect to WiFi
+        document.getElementById('wifiForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const ssid = document.getElementById('ssid').value;
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('connectBtn');
+            const message = document.getElementById('message');
+            
+            btn.disabled = true;
+            btn.textContent = 'Connecting...';
+            
+            fetch('/api/wifi/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ssid, password })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showMessage('Connected! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                } else {
+                    showMessage(data.error || 'Connection failed', 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Connect';
+                }
+            })
+            .catch(err => {
+                showMessage('Connection error', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Connect';
+            });
+        });
+        
+        function showMessage(text, type) {
+            const message = document.getElementById('message');
+            message.textContent = text;
+            message.className = `message ${type}`;
+            message.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

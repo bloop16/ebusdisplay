@@ -102,3 +102,56 @@ def create_app(testing=False):
 if __name__ == '__main__':
     app = create_app()
     app.run(host='0.0.0.0', port=5000, debug=True)
+
+# WiFi Setup Routes
+@app.route('/wifi')
+def wifi_setup():
+    """WiFi setup page"""
+    return render_template('wifi_setup.html')
+
+@app.route('/api/wifi/status')
+def wifi_status():
+    """Get WiFi connection status"""
+    try:
+        from src.wifi.ap_manager import APManager
+        ap = APManager()
+        
+        ssid = None
+        if ap.is_wifi_connected():
+            import subprocess
+            result = subprocess.run(['iwgetid', '-r'], capture_output=True, text=True)
+            if result.returncode == 0:
+                ssid = result.stdout.strip()
+        
+        return jsonify({
+            'connected': ap.is_wifi_connected(),
+            'ssid': ssid,
+            'configured': ap.is_wifi_configured()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/wifi/connect', methods=['POST'])
+def wifi_connect():
+    """Connect to WiFi network"""
+    try:
+        data = request.json
+        ssid = data.get('ssid')
+        password = data.get('password')
+        
+        if not ssid or not password:
+            return jsonify({'error': 'SSID and password required'}), 400
+        
+        from src.wifi.ap_manager import APManager
+        ap = APManager()
+        
+        success = ap.connect_to_wifi(ssid, password)
+        
+        if success:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'error': 'Connection failed'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
