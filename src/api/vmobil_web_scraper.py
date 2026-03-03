@@ -179,31 +179,55 @@ class VMobilWebScraper:
         return departures
     
     def _get_mock_departures(self, stop_name: str, limit: int) -> list:
-        """Generate mock data for testing"""
+        """Generate realistic mock data for Vorarlberg"""
         import random
         
-        lines = ['1', '3', '5', '7', '9', 'N']
-        destinations = [
-            'Dornbirn Zentrum',
-            'Bludenz Bahnhof',
-            'Feldkirch Bahnhof',
-            'Lingenau',
-            'Hörbranz',
-            'Schoppernau'
-        ]
+        # Echte Vorarlberg ÖV Liniennummern
+        all_lines = ['1', '3', '5', '6', '7', '9', '10', '11', '12', '14', '15', '16', '20', '21', '22', 'N8', 'NT']
+        
+        # Realistische Ziele basierend auf Haltestelle
+        destination_map = {
+            'Bregenz Bahnhof': [
+                'Dornbirn Zentrum', 'Feldkirch Bahnhof', 'Lustenau', 
+                'Hard', 'Lochau', 'Bregenz Hafen', 'Höchst'
+            ],
+            'Rankweil Konkordiaplatz': [
+                'Feldkirch Bahnhof', 'Bregenz Bahnhof', 'Dornbirn Zentrum',
+                'Rankweil Bahnhof', 'Bludenz Bahnhof', 'Meiningen'
+            ],
+            'Dornbirn Bahnhof': [
+                'Feldkirch Bahnhof', 'Bregenz Bahnhof', 'Dornbirn Zentrum',
+                'Lustenau', 'Bludenz', 'Lustenau Zentrum'
+            ],
+            'Feldkirch Bahnhof': [
+                'Dornbirn Zentrum', 'Bregenz Bahnhof', 'Bludenz Bahnhof',
+                'Rankweil', 'Ludwigsburg', 'Schaan'
+            ],
+        }
+        
+        destinations = destination_map.get(stop_name, [
+            'Bregenz', 'Feldkirch', 'Dornbirn', 'Rankweil', 
+            'Bludenz', 'Hard', 'Lustenau'
+        ])
         
         departures = []
         now = datetime.now()
         
-        for i in range(limit):
-            dep_time = now + timedelta(minutes=random.randint(1, 60))
+        # Realistische Abfahrtszeiten (nicht zufällig verteilt)
+        time_patterns = [3, 7, 12, 18, 25, 32, 40, 48, 56]  # Typische Abstände
+        
+        for i in range(min(limit, len(time_patterns))):
+            dep_time = now + timedelta(minutes=time_patterns[i])
+            
+            # 80% pünktlich, 20% mit Verspätung (1-5 min)
+            delay = random.choice([None, None, None, None, 2, 3]) if random.random() < 0.2 else None
             
             departures.append({
-                'line': random.choice(lines),
+                'line': random.choice(all_lines),
                 'destination': random.choice(destinations),
                 'departure_time': dep_time,
                 'stop_name': stop_name,
-                'delay_minutes': random.choice([None, None, None, 2])  # 75% pünktlich
+                'delay_minutes': delay
             })
         
         return sorted(departures, key=lambda x: x['departure_time'])
