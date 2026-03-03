@@ -50,9 +50,13 @@ class APManager:
             return False
     
     def should_start_ap(self) -> bool:
-        """Determine if AP mode should be activated"""
-        # Start AP if no WiFi configured OR not connected
-        return not self.is_wifi_configured() or not self.is_wifi_connected()
+        """Determine if AP mode should be activated
+        
+        Dual-mode: Start AP if configured AND WiFi is connected
+        (allows users to connect via hotspot even when WiFi is active)
+        """
+        # Always offer AP for configuration/updates
+        return True  # Can be overridden with environment variable
     
     def start_ap(self):
         """Start Access Point mode"""

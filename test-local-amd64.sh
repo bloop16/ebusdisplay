@@ -1,12 +1,9 @@
 #!/bin/bash
-# Local testing script - ARM emulation requires privileged host
+# Local testing script - AMD64 native (no ARM emulation)
 
 echo "==================================="
-echo "Bus Display - Local Testing"
+echo "Bus Display - Local Testing (AMD64)"
 echo "==================================="
-echo ""
-echo "⚠️  NOTE: ARM emulation requires privileged host access."
-echo "    If this fails, use: ./test-local-amd64.sh (native AMD64)"
 echo ""
 
 # Check Docker
@@ -18,21 +15,10 @@ fi
 
 echo "Docker found ✓"
 
-# Enable ARM emulation (one-time setup)
-echo ""
-echo ">>> Enabling ARM emulation..."
-docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-
-if [ $? -eq 0 ]; then
-    echo "ARM emulation enabled ✓"
-else
-    echo "WARNING: ARM emulation setup failed (may already be enabled)"
-fi
-
 # Build image
 echo ""
-echo ">>> Building Docker image..."
-docker build -t bus-display:local .
+echo ">>> Building Docker image (AMD64)..."
+docker build -f Dockerfile.local -t bus-display:local-amd64 .
 
 if [ $? -ne 0 ]; then
     echo "ERROR: Build failed!"
@@ -41,14 +27,17 @@ fi
 
 echo "Build complete ✓"
 
+# Stop any existing container
+docker stop bus-display-test 2>/dev/null || true
+docker rm bus-display-test 2>/dev/null || true
+
 # Run container
 echo ""
 echo ">>> Starting container..."
-docker run -d --name bus-display-test -p 5000:5000 bus-display:local
+docker run -d --name bus-display-test -p 5000:5000 bus-display:local-amd64
 
 if [ $? -ne 0 ]; then
     echo "ERROR: Container start failed!"
-    docker rm -f bus-display-test 2>/dev/null
     exit 1
 fi
 

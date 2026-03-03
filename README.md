@@ -1,171 +1,165 @@
-# 🚍 Raspberry Pi Zero Bus Display
+# 🚍 eBusDisplay
 
-E-Ink display showing real-time bus departures for Vorarlberg public transport (vmobil.at).
+**Real-Time Bus Display für Vorarlberg** - E-Ink Display mit Live-Abfahrtszeiten  
+Powered by VMobil.at | Open Source | Raspberry Pi Zero W
 
-## Hardware Required
-- **Raspberry Pi Zero W** (or Zero 2 W)
-- **PiSugar 2** Battery HAT with button
-- **Waveshare 2.13" e-Paper HAT** (250x122px B/W)
-
-## Features
-✅ WiFi setup via captive portal (TODO)  
-✅ Web interface for bus stop configuration  
-✅ Real-time departure display  
-✅ E-Ink optimized layout (battery-friendly)  
-✅ Smart power management (TODO: battery/AC modes)  
-✅ Mock mode for testing without hardware  
-
-## Quick Start
-
-### 1. Install Dependencies
-```bash
-sudo apt update
-sudo apt install -y python3-flask python3-requests python3-bs4 python3-pil
-```
-
-### 2. Clone Repository
-```bash
-cd /home/martin
-git clone <repo-url> bus-display
-cd bus-display
-```
-
-### 3. Start Web Interface
-```bash
-python3 -m src.web.app
-```
-Visit: `http://192.168.0.99:5000`
-
-### 4. Configure Bus Stops
-- Search for your bus stops
-- Add them to your configuration
-- Save
-
-### 5. Update Display
-```bash
-# Single update (mock mode)
-python3 main.py --mock-display
-
-# Continuous updates every 5 minutes
-python3 main.py --continuous --interval 5
-
-# Production (real hardware)
-sudo python3 main.py --continuous --interval 5
-```
-
-## Development
-
-### TDD Approach
-All features are developed test-first:
-```bash
-# Run all tests
-python3 -m pytest tests/unit/ -v
-
-# Specific test file
-python3 -m pytest tests/unit/test_vmobil_api.py -v
-```
-
-**Test Coverage:**
-- ✅ 9/9 VMobil API tests
-- ✅ 6/6 Web interface tests
-- ✅ 11/11 Display rendering tests
-- **Total: 26/26 passing**
-
-### Project Structure
-```
-bus-display/
-├── main.py              # Main controller
-├── src/
-│   ├── api/            # VMobil.at API client
-│   ├── display/        # E-Ink rendering + driver
-│   ├── web/            # Flask web interface
-│   ├── wifi/           # WiFi AP management (TODO)
-│   └── power/          # Power management (TODO)
-├── tests/
-│   ├── unit/           # Unit tests (TDD)
-│   └── integration/    # Integration tests (TODO)
-├── config/
-│   └── stops.json      # Configured bus stops
-└── docs/               # Documentation
-
-```
-
-## Systemd Service (TODO)
-```bash
-# Install service
-sudo cp systemd/bus-display.service /etc/systemd/system/
-sudo systemctl enable bus-display
-sudo systemctl start bus-display
-```
-
-## Power Management Strategy
-
-### Battery Mode (PiSugar button press)
-- Display sleeps by default
-- Button press → wake + update + sleep
-- Extends battery life significantly
-
-### AC Power Mode
-- Auto-update based on next departure time
-- More frequent updates (every 5 minutes or smart scheduling)
-
-## API Data Source
-Currently uses **vmobil.at** (Vorarlberg public transport).  
-Implementation: Web scraping (no public API available).  
-Mock data used for testing - real scraping to be implemented.
-
-## License
-MIT
-
-## Credits
-- Waveshare e-Paper library
-- VMobil.at for transport data
-- Built with TDD principles
+![Status](https://img.shields.io/badge/status-beta-yellow)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Python](https://img.shields.io/badge/python-3.9+-blue)
 
 ---
 
-## 🖥️ Local Testing (No SD Card Flashing!)
+## ✨ Features
 
-### Docker ARM Emulation ⭐ FASTEST!
+- **📺 E-Ink Display** (Waveshare 2.13") - stromsparend, immer sichtbar
+- **🚏 Live-Abfahrten** - Echte Daten von VMobil.at
+- **📱 Web-Interface** - 3 Tabs für einfache Konfiguration
+- **📡 WiFi Setup** - Hotspot für erste Einrichtung
+- **🔋 Smart Power** - Battery-Modus mit PiSugar (optional)
+- **🏠 Offline Mode** - Funktioniert auch ohne Internet (mit Caching)
 
-Test on your desktop/laptop without Pi hardware:
+---
 
+## 🎯 Hardware
+
+- **Raspberry Pi Zero W** - oder Zero 2 W
+- **Waveshare 2.13" e-Paper HAT** (250x122px)
+- **PiSugar 2** (optional, Battery-Management)
+- **SD Card** min. 4GB
+
+---
+
+## 🚀 Quick Start
+
+### Lokal Testen (Docker)
 ```bash
-# One-time setup: Enable ARM emulation
-docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+git clone https://github.com/YOUR-USER/ebisdisplay.git
+cd ebisdisplay
 
-# Build and run
-docker build -t bus-display .
-docker run -p 5000:5000 bus-display
+# Schnell-Test
+./test-local-amd64.sh
 
-# Or use the script
-./test-local.sh
+# Öffne Browser: http://localhost:5000
 ```
 
-Visit: **http://localhost:5000**
-
-### Docker Compose
-
+### Auf Raspberry Pi
 ```bash
-docker-compose up
+# 1. Raspberry Pi OS Lite flashen
+# 2. SSH aktivieren
+
+# 3. Installation
+git clone https://github.com/YOUR-USER/ebisdisplay.git
+cd ebisdisplay
+sudo ./install.sh
+
+# 4. Web-Interface
+# http://<PI-IP>:5000
 ```
 
-### Manual Testing
+---
 
+## 📋 Web-Interface Tabs
+
+### 🚏 Haltestellen
+- Suche nach Lieblingshaltstellen
+- Speichere Favoriten
+- Live-Preview
+
+### ⏱️ Live-Abfahrten  
+- Nächste Busse in Echtzeit
+- Verspätungen anzeigen
+- Auto-Refresh
+
+### 📡 WiFi
+- WiFi-Verbindung einrichten
+- Status prüfen
+- Hotspot-Info
+
+---
+
+## 🔧 Architektur
+
+```
+eBusDisplay/
+├── src/
+│   ├── api/              # VMobil Daten-Fetcher
+│   ├── display/          # E-Ink Rendering
+│   ├── web/              # Flask Web-UI
+│   ├── wifi/             # AP-Manager & WiFi
+│   └── power/            # PiSugar Battery  
+├── config/               # stops.json (Konfiguration)
+├── tests/                # Pytest Unit-Tests
+├── main.py               # Haupt-Loop
+├── boot_display.py       # Boot-Screen
+└── install.sh            # Installer
+```
+
+---
+
+## 💻 Entwicklung
+
+**Tests ausführen:**
 ```bash
-# On dev server (current workflow)
+python3 -m pytest tests/unit/ -v
+# 26/26 Tests passing
+```
+
+**Web-UI lokal starten:**
+```bash
+python3 -m src.web.app
+```
+
+**Display-Rendering testen:**
+```bash
+python3 main.py --mock-display --mock-battery
+```
+
+---
+
+## 📖 Dokumentation
+
+- [INSTALL.md](INSTALL.md) - Detaillierte Installation
+- [FEATURES.md](FEATURES.md) - Alle Features
+- [docs/LOCAL_TESTING.md](docs/LOCAL_TESTING.md) - Lokales Testing
+- [docs/IMAGE_BUILD.md](docs/IMAGE_BUILD.md) - SD-Image erstellen
+
+---
+
+## 🐛 Troubleshooting
+
+**Display zeigt nichts:**
+```bash
 python3 main.py --mock-display
-
-# Continuous mode
-python3 main.py --mock-display --continuous --interval 5
+journalctl -u ebisdisplay -f
 ```
 
-### Development Workflow
+**Web-UI nicht erreichbar:**
+```bash
+sudo systemctl restart ebisdisplay-web
+sudo netstat -tulpn | grep 5000
+```
 
-1. **Code** → Edit files locally
-2. **Test** → `./test-local.sh` (Docker)
-3. **Deploy** → Copy to Pi / Flash SD
-4. **Validate** → Test on real hardware
+---
 
-**No constant SD card flashing needed!**
+## 🤝 Contributing
+
+Contributions sind willkommen!
+
+```bash
+git clone https://github.com/YOUR-USER/ebisdisplay.git
+git checkout -b feature/xyz
+# ... code ...
+git push origin feature/xyz
+# → Create Pull Request
+```
+
+---
+
+## 📄 Lizenz
+
+MIT License - siehe [LICENSE](LICENSE)
+
+---
+
+**Made with ❤️ für Vorarlberg Transit**
 

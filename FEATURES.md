@@ -1,125 +1,76 @@
-# Bus Display - Feature Complete! 🎉
+# eBusDisplay - Features
 
-## ✅ Implemented Features
+## ✅ Implementiert & Getestet
 
-### Core Functionality
-- [x] E-Ink display rendering (250x122px Waveshare 2.13")
-- [x] Bus departure display (line, destination, time)
-- [x] Multi-stop configuration
-- [x] Auto-update loop
-- [x] Error handling + logging
+### Core Funktionalität
+- [x] E-Ink Display Rendering (250x122px Waveshare)
+- [x] Bus-Abfahrtsanzeige (Linie, Ziel, Zeit)
+- [x] Multi-Haltestellen Konfiguration
+- [x] Auto-Update Schleife
+- [x] Error Handling & Logging
 
-### Web Interface
-- [x] Modern, responsive UI (mobile-first)
-- [x] Stop search + autocomplete
-- [x] Configuration management
-- [x] WiFi setup page
-- [x] Real-time status
+### Web-Interface (3 Tabs)
+
+#### 🚏 Haltestellen
+- [x] Haltestellen-Suche (Live Autocomplete)
+- [x] Zu Favoriten speichern
+- [x] Favoriten entfernen
+- [x] Persistente Konfiguration
+
+#### ⏱️ Live-Abfahrten
+- [x] Live-Abfahrtstafel für jede Haltestelle
+- [x] Echtzeit-Daten von VMobil
+- [x] Verspätungsanzeige
+- [x] Aktualisierung alle 30 Sekunden
+
+#### 📡 WiFi
+- [x] WiFi-Status prüfen
+- [x] Mit Netzwerk verbinden
+- [x] Passwort speichern
+- [x] Fehlerbehandlung
+
+### VMobil API Integration
+- [x] Web-Scraper für echte Daten
+- [x] Fallback auf Mock-Daten
+- [x] Offline-Caching (30 Sekunden)
+- [x] Timeout-Handling
 
 ### WiFi Management
-- [x] AP mode (hotspot) for initial setup
-- [x] Client mode for normal operation
-- [x] Auto-detection (AP if no WiFi)
-- [x] Web-based WiFi configuration
+- [x] AP-Manager für Hotspot
+- [x] Client-Mode Konfiguration
+- [x] Auto-Detection WiFi
+- [x] Fehler-Recovery
 
 ### Battery Management (PiSugar)
-- [x] Battery level monitoring
-- [x] Charging status detection
-- [x] Button press handler
-- [x] Smart power modes:
-  - AC Power: Auto-update every 5min
-  - Battery: Button-triggered updates
-- [x] Battery % shown on display
+- [x] Battery-Level Monitoring
+- [x] Charging-Status Detection
+- [x] Button-Handler
+- [x] Smart Power Modes
 
-### Data Source
-- [x] VMobil.at API integration
-- [x] Web scraping fallback
-- [x] Mock data for testing
-- [x] Real-time departures
+### Display Features
+- [x] Abfahrts-Layout (bis 4 Busse)
+- [x] Linie, Ziel, Zeit, Verspätung
+- [x] WiFi-Indicator
+- [x] Battery %-Anzeige
+- [x] Current Time im Footer
 
-### System Integration
-- [x] Systemd auto-start services
-- [x] Boot screen with network info
-- [x] Setup screen (if not configured)
-- [x] Status displays (boot, setup, error)
-- [x] One-command installation
+### Systemd Integration
+- [x] Auto-Start Services
+- [x] Boot-Screen Service
+- [x] Web-UI Service
+- [x] Logging zu Journalctl
 
 ### Development Tools
-- [x] Docker ARM emulation (local testing)
-- [x] Mock modes (display, battery)
-- [x] TDD test suite (26/26 passing)
-- [x] Complete documentation
+- [x] Docker AMD64 für lokales Testing
+- [x] Mock-Modi (Display, Battery, API)
+- [x] TDD Test Suite (26/26 passing)
 
-### Documentation
-- [x] README.md - Overview
-- [x] INSTALL.md - Installation guide
-- [x] docs/LOCAL_TESTING.md - Dev workflow
-- [x] docs/IMAGE_BUILD.md - Image creation
-- [x] Inline code documentation
+---
 
-## 📦 Ready for Production
+## 📊 Test-Status: ✅ 26/26 BESTANDEN
 
-### Installation Methods
-1. **Flash Pre-Built Image** (easiest)
-   - Download .img.xz
-   - Flash with Etcher
-   - Boot → Configure → Done!
+---
 
-2. **Manual Installation**
-   - Flash Raspberry Pi OS Lite
-   - Run `sudo ./install.sh`
-   - Reboot
+## 🎯 **PRODUKTIONSREIF** ✨
 
-3. **Docker Testing** (development)
-   - `./test-local.sh`
-   - Instant feedback
-
-### First Boot Experience
-1. Pi boots → Boot screen appears
-2. If no WiFi → Creates AP "BusDisplay-Setup"
-3. Display shows connection info
-4. Visit web interface
-5. Configure stops
-6. Auto-updates start
-
-## 🎯 Use Cases
-
-### Home Display
-- AC powered
-- Auto-updates every 5min
-- Always-on display
-
-### Portable Display
-- Battery powered
-- Press button to update
-- 12+ hours battery life
-
-### Development
-- Docker local testing
-- No hardware needed
-- Fast iteration
-
-## 📊 Stats
-
-- **Development Time:** 4 hours (MVP to production!)
-- **Lines of Code:** ~3000
-- **Test Coverage:** 26/26 passing
-- **Commits:** 11 total
-- **Mock Modes:** 100% hardware-optional testing
-
-## 🚀 Future Ideas (Optional)
-
-- [ ] Multi-language support
-- [ ] Custom themes/colors
-- [ ] Route planning
-- [ ] Delay notifications
-- [ ] Multiple display pages (rotation)
-- [ ] Weather integration
-- [ ] Calendar sync
-- [ ] Voice announcements (TTS)
-- [ ] OTA updates
-
-## 🏆 Project Complete!
-
-All core features implemented and tested.
-Ready for production use! 🎉
+Alle Kern-Features implementiert und getestet!
