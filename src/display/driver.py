@@ -3,6 +3,7 @@ E-Ink display hardware driver.
 Wraps Waveshare library with mock mode for testing.
 """
 from PIL import Image
+import time
 import logging
 
 logger = logging.getLogger(__name__)
@@ -62,15 +63,29 @@ class DisplayDriver:
             logger.info(f"[MOCK] Would display image: {image.size} {image.mode}")
             return
 
-        try:
-            # Wake display from sleep, show image, then sleep again
-            self.epd.init()
-            buf = self.epd.getbuffer(image)
-            self.epd.display(buf)
-            self.epd.sleep()
-            logger.info("Image displayed, display sleeping")
-        except Exception as e:
-            logger.error(f"Display failed: {e}")
+        image_to_draw = image.convert('1')
+
+        for attempt in range(2):
+            try:
+                # Wake display from sleep, show image, then sleep again
+                self.epd.init()
+                buf = self.epd.getbuffer(image_to_draw)
+                self.epd.display(buf)
+                self.epd.sleep()
+                logger.info("Image displayed, display sleeping")
+                return
+            except Exception as e:
+                logger.warning(f"Display attempt {attempt + 1} failed: {e}")
+                time.sleep(0.2)
+                if attempt == 0:
+                    try:
+                        from waveshare_epd import epd2in13_V4
+                        self.epd = epd2in13_V4.EPD()
+                    except Exception as reinit_err:
+                        logger.error(f"Display re-init failed: {reinit_err}")
+                        break
+
+        logger.error("Display failed after retry")
     
     def clear(self):
         """Clear display to white"""
@@ -80,7 +95,9 @@ class DisplayDriver:
         
         if self.initialized:
             try:
+                self.epd.init()
                 self.epd.Clear(0xFF)
+                self.epd.sleep()
                 logger.info("Display cleared")
             except Exception as e:
                 logger.error(f"Clear failed: {e}")

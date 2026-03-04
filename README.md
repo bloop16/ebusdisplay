@@ -34,8 +34,8 @@ Powered by VMobil.at | Open Source | Raspberry Pi Zero W
 
 ### Lokal Testen (Docker)
 ```bash
-git clone https://github.com/YOUR-USER/ebisdisplay.git
-cd ebisdisplay
+git clone https://github.com/YOUR-USER/bus-display.git
+cd bus-display
 
 # Schnell-Test
 ./test-local-amd64.sh
@@ -49,8 +49,8 @@ cd ebisdisplay
 # 2. SSH aktivieren
 
 # 3. Installation
-git clone https://github.com/YOUR-USER/ebisdisplay.git
-cd ebisdisplay
+git clone https://github.com/YOUR-USER/bus-display.git
+cd bus-display
 sudo ./install.sh
 
 # 4. Web-Interface
@@ -83,7 +83,7 @@ sudo ./install.sh
 ## 🔧 Architektur
 
 ```
-eBusDisplay/
+bus-display/
 ├── src/
 │   ├── api/              # VMobil Daten-Fetcher
 │   ├── display/          # E-Ink Rendering
@@ -155,12 +155,12 @@ python3 main.py --mock-display --mock-battery
 **Display zeigt nichts:**
 ```bash
 python3 main.py --mock-display
-journalctl -u ebisdisplay -f
+journalctl -u bus-display -f
 ```
 
 **Web-UI nicht erreichbar:**
 ```bash
-sudo systemctl restart ebisdisplay-web
+sudo systemctl restart bus-display
 sudo netstat -tulpn | grep 5000
 ```
 
@@ -171,7 +171,7 @@ sudo netstat -tulpn | grep 5000
 Contributions sind willkommen!
 
 ```bash
-git clone https://github.com/YOUR-USER/ebisdisplay.git
+git clone https://github.com/YOUR-USER/bus-display.git
 git checkout -b feature/xyz
 # ... code ...
 git push origin feature/xyz

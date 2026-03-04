@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 MAX_SLEEP_SEC        = 20 * 60   # Fallback wenn keine Abfahrten mehr heute
 DEPARTURE_BUFFER_SEC = 30        # Sekunden VOR Abfahrt refreshen (frische Daten)
 NO_CONFIG_SLEEP_SEC  = 5         # Schneller Retry bis Stops konfiguriert sind
+CLOCK_REFRESH_SEC    = 60        # Regelmäßiger Refresh für sichtbare aktuelle Uhrzeit
 
 
 def _start_web_server(api: VMobilAPI, on_config_saved=None):
@@ -99,19 +100,21 @@ class BusDisplay:
             return []
 
     def _seconds_until_next_update(self, departures: list) -> int:
-        """Liefert Sekunden bis kurz VOR der nächsten Abfahrt (für frische Daten)."""
+        """Liefert Sekunden bis kurz VOR nächster Abfahrt, begrenzt für Uhrzeit-Refresh."""
         now = datetime.now()
         future = [d for d in departures if d.departure_time > now]
 
         if not future:
-            logger.info(f"Keine anstehenden Abfahrten – nächstes Update in {MAX_SLEEP_SEC // 60} min")
-            return MAX_SLEEP_SEC
+            timeout = min(MAX_SLEEP_SEC, CLOCK_REFRESH_SEC)
+            logger.info(f"Keine anstehenden Abfahrten – nächstes Update in {timeout}s")
+            return timeout
 
         next_dep = future[0]
         seconds_until = (next_dep.departure_time - now).total_seconds()
         # DEPARTURE_BUFFER_SEC vor Abfahrt aufwachen → Display zeigt aktuelle Daten
         sleep_sec = max(10, int(seconds_until - DEPARTURE_BUFFER_SEC))
         sleep_sec = min(sleep_sec, MAX_SLEEP_SEC)
+        sleep_sec = min(sleep_sec, CLOCK_REFRESH_SEC)
 
         wake_at = next_dep.departure_time.strftime('%H:%M')
         logger.info(f"Nächste Abfahrt: Linie {next_dep.line} um {wake_at} → Refresh in {sleep_sec}s")
@@ -146,9 +149,10 @@ class BusDisplay:
                     self.wakeup_event.wait(timeout=NO_CONFIG_SLEEP_SEC)
                     self.wakeup_event.clear()
                 elif on_battery:
-                    # Batterie: unbegrenzt warten bis Button oder Config-Änderung
-                    logger.info("Warte auf Button-Druck…")
-                    self.wakeup_event.wait()
+                    # Batterie: auf Button warten, aber regelmäßig refreshern
+                    # (Fallback falls PiSugar-Ladestatus fehlerhaft erkannt wird)
+                    logger.info(f"Batterie-Modus: warte auf Button (spätestens Refresh in {CLOCK_REFRESH_SEC}s)…")
+                    self.wakeup_event.wait(timeout=CLOCK_REFRESH_SEC)
                     self.wakeup_event.clear()
                 else:
                     # Netzstrom: automatisch vor nächster Abfahrt aufwachen

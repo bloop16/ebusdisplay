@@ -80,24 +80,27 @@ class DisplayRenderer:
 
         # ── Header ───────────────────────────────────────────────
         y = 1
-        draw.text((2, y), "Bus Terminal", font=self.font_header, fill=0)
+        now_str = datetime.now().strftime("%H:%M")
+        now_w = int(draw.textlength(now_str, font=self.font_line))
+        draw.text((self.width - now_w - 2, y), now_str, font=self.font_line, fill=0)
 
-        # Status indicators (right side, stacked left from edge)
-        x_right = self.width - 2
+        title_text = "Bus Terminal"
+        title_max_px = self.width - now_w - 10
+        draw.text((2, y), self._truncate(title_text, max_px=title_max_px), font=self.font_header, fill=0)
+
+        status_parts = []
         if battery_percent is not None:
-            bat_text = f"{battery_percent}%"
-            bat_w = int(draw.textlength(bat_text, font=self.font_small))
-            draw.text((x_right - bat_w, y + 1), bat_text, font=self.font_small, fill=0)
-            x_right -= bat_w + 4
-
+            status_parts.append(f"B:{battery_percent}%")
         if wifi_signal is not None:
-            # Show signal as "W:75" (compact)
-            wifi_text = f"W:{wifi_signal}"
-            wifi_w = int(draw.textlength(wifi_text, font=self.font_small))
-            draw.text((x_right - wifi_w, y + 1), wifi_text, font=self.font_small, fill=0)
+            status_parts.append(f"W:{wifi_signal}")
+
+        if status_parts:
+            status_text = " ".join(status_parts)
+            status_w = int(draw.textlength(status_text, font=self.font_small))
+            draw.text((self.width - status_w - 2, y + 11), status_text, font=self.font_small, fill=0)
 
         # ── Divider ───────────────────────────────────────────────
-        y += 14
+        y += 22
         draw.line((0, y, self.width, y), fill=0, width=1)
         y += 2
 
@@ -107,7 +110,7 @@ class DisplayRenderer:
             draw.text((4, y + 16), "Keine Abfahrten", font=self.font_dep, fill=0)
         else:
             for dep in departures[:6]:
-                if y + ROW_H > self.height - 12:
+                if y + ROW_H > self.height - 2:
                     break
 
                 row_y_center = y + (ROW_H - ICON_SIZE) // 2  # vertical center for icon
@@ -148,11 +151,6 @@ class DisplayRenderer:
                 draw.text((dest_x, y + 2), dest_text, font=self.font_dep, fill=0)
 
                 y += ROW_H
-
-        # ── Footer: current time ──────────────────────────────────
-        now_str = datetime.now().strftime("%H:%M")
-        now_w = int(draw.textlength(now_str, font=self.font_small))
-        draw.text((self.width - now_w - 2, self.height - 11), now_str, font=self.font_small, fill=0)
 
         return image
 

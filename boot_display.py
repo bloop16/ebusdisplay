@@ -77,7 +77,7 @@ def main():
     print(f"WiFi: {wifi_ssid}")
     
     # Check if configured
-    config_file = Path('/home/pi/bus-display/config/stops.json')
+    config_file = Path(__file__).parent / 'config' / 'stops.json'
     if not config_file.exists() or config_file.stat().st_size < 20:
         # Show setup screen
         print("No configuration found - showing setup screen")
