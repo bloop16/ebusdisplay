@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import logging
 import json
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +141,7 @@ class VMobilWebScraper:
                     'destination': dep.get('destination', '?'),
                     'departure_time': self._parse_time(dep.get('time')),
                     'stop_name': stop_name,
-                    'delay_minutes': dep.get('delay')
+                    'delay_minutes': self._parse_delay_minutes(dep.get('delay'))
                 })
             except Exception as e:
                 logger.error(f"Error parsing departure: {e}")
@@ -164,12 +165,13 @@ class VMobilWebScraper:
                 time = row.find(class_=lambda x: x and 'time' in x.lower())
                 
                 if line and dest and time:
+                    delay = row.find(class_=lambda x: x and 'delay' in x.lower())
                     departures.append({
                         'line': line.text.strip(),
                         'destination': dest.text.strip(),
                         'departure_time': self._parse_time(time.text.strip()),
                         'stop_name': stop_name,
-                        'delay_minutes': None
+                        'delay_minutes': self._parse_delay_minutes(delay.text.strip() if delay else None)
                     })
             except Exception as e:
                 logger.debug(f"Error parsing row: {e}")
@@ -177,28 +179,56 @@ class VMobilWebScraper:
         return departures
     
     def _parse_time(self, time_str: str) -> datetime:
-        """Parse time string"""
+        """Parse VMobil time strings: HH:MM, 'in X min', 'X'', 'jetzt/sofort'."""
+        now = datetime.now()
+
         if not time_str:
-            return datetime.now() + timedelta(minutes=5)
-        
-        try:
-            time_str = time_str.strip()
-            
-            # Format: "HH:MM"
-            if ':' in time_str:
-                h, m = map(int, time_str.split(':'))
-                now = datetime.now()
-                parsed = now.replace(hour=h, minute=m, second=0, microsecond=0)
-                
-                # Wenn Zeit vorbei, nächster Tag
-                if parsed < now:
-                    parsed += timedelta(days=1)
-                
-                return parsed
-        except:
-            pass
-        
-        return datetime.now() + timedelta(minutes=5)
+            return now + timedelta(minutes=5)
+
+        text = str(time_str).strip().lower()
+        if not text:
+            return now + timedelta(minutes=5)
+
+        if text in {"jetzt", "sofort", "now"}:
+            return now
+
+        # Relative formats like "in 3 min", "3 min", "5'".
+        if "min" in text or "'" in text:
+            match = re.search(r"(\d{1,3})", text)
+            if match:
+                return now + timedelta(minutes=int(match.group(1)))
+
+        # Absolute time, optional extra text around it.
+        match = re.search(r"(\d{1,2})[:.](\d{2})", text)
+        if match:
+            h = int(match.group(1))
+            m = int(match.group(2))
+            parsed = now.replace(hour=h, minute=m, second=0, microsecond=0)
+            if parsed < (now - timedelta(minutes=2)):
+                parsed += timedelta(days=1)
+            return parsed
+
+        return now + timedelta(minutes=5)
+
+    def _parse_delay_minutes(self, value) -> int | None:
+        """Extract delay from '+3', '3 min' or numeric values."""
+        if value is None:
+            return None
+
+        if isinstance(value, (int, float)):
+            delay = int(value)
+            return delay if delay >= 0 else None
+
+        text = str(value).strip().lower()
+        if not text:
+            return None
+
+        match = re.search(r"(\d{1,3})", text)
+        if not match:
+            return None
+
+        delay = int(match.group(1))
+        return delay if delay >= 0 else None
 
 
 # Test und Debugging-Hilfe
