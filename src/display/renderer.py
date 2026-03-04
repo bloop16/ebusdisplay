@@ -14,7 +14,6 @@ ICON_SIZE = 12
 
 # Fixed column widths for departure rows
 LINE_COL_W = 44   # px reserved for line name
-ICON_COL_W = 26   # px reserved for icon slot (up to 2 icons: 2×13px)
 
 
 class DisplayRenderer:
@@ -117,15 +116,6 @@ class DisplayRenderer:
                 line_text = str(dep.line)[:15]
                 draw.text((2, y + 1), line_text, font=self.font_line, fill=0)
 
-                # ── Spalte 2: Icon-Spalte (fest ICON_COL_W px) ─────
-                icon_x = 2 + LINE_COL_W
-                icon_list = dep.icons if hasattr(dep, 'icons') and dep.icons else ()
-                for icon_name in icon_list:
-                    icon_img = self._get_icon(icon_name)
-                    if icon_img:
-                        image.paste(icon_img, (icon_x, row_y_center))
-                        icon_x += ICON_SIZE + 2
-
                 # ── Rechte Seite: Zeit + Haltestellen-Kürzel ───────
                 time_text = self._format_time(dep.departure_time)
                 time_w = int(draw.textlength(time_text, font=self.font_dep))
@@ -139,9 +129,21 @@ class DisplayRenderer:
                               font=self.font_small, fill=0)
                     stop_reserve = abbr_w + 18
 
-                # ── Spalte 3: Destination (füllt Mitte) ────────────
-                dest_x = 2 + LINE_COL_W + ICON_COL_W
-                dest_max_px = self.width - dest_x - time_w - stop_reserve - 6
+                # ── Icons rechts neben Destination ─────────────────
+                icon_list = dep.icons if hasattr(dep, 'icons') and dep.icons else ()
+                icon_total_w = len(icon_list) * (ICON_SIZE + 2) if icon_list else 0
+
+                # Icons direkt links von Stop/Zeit platzieren
+                icon_x = self.width - time_w - stop_reserve - icon_total_w - 4
+                for icon_name in icon_list:
+                    icon_img = self._get_icon(icon_name)
+                    if icon_img:
+                        image.paste(icon_img, (icon_x, row_y_center))
+                        icon_x += ICON_SIZE + 2
+
+                # ── Spalte 2: Destination (füllt zwischen Linie und Icons) ──
+                dest_x = 2 + LINE_COL_W
+                dest_max_px = self.width - dest_x - time_w - stop_reserve - icon_total_w - 8
                 dest_text = self._truncate(dep.destination, max_px=dest_max_px)
                 draw.text((dest_x, y + 2), dest_text, font=self.font_dep, fill=0)
 
