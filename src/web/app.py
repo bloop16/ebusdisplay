@@ -10,8 +10,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def create_app(testing=False):
-    """Application factory"""
+def create_app(testing=False, api=None):
+    """Application factory. api: geteilte VMobilAPI-Instanz aus main.py (vermeidet Doppel-Init)."""
     app = Flask(__name__)
     app.config['TESTING'] = testing
 
@@ -21,8 +21,9 @@ def create_app(testing=False):
 
     CONFIG_DIR.mkdir(exist_ok=True)
 
-    from src.api import VMobilAPI
-    api = VMobilAPI()
+    if api is None:
+        from src.api import VMobilAPI
+        api = VMobilAPI()
 
     def _load_config() -> dict:
         if CONFIG_FILE.exists():

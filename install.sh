@@ -27,6 +27,7 @@ apt-get install -y \
     python3-rpi.gpio \
     python3-spidev \
     python3-flask \
+    fonts-dejavu-core \
     git curl netcat-openbsd
 
 # ── SPI aktivieren (Waveshare Display) ────────────────────────
@@ -75,28 +76,20 @@ pip3 install -r requirements.txt \
     --break-system-packages 2>/dev/null || \
     pip3 install -r requirements.txt
 
-# ── PiSugar 3 Daemon ──────────────────────────────────────────
-if systemctl is-enabled pisugar-server &>/dev/null; then
-    echo "PiSugar bereits installiert"
-    systemctl start pisugar-server 2>/dev/null || true
-else
-    echo "PiSugar 3 installieren..."
-    curl -s https://cdn.pisugar.com/release/pisugar-power-manager.sh | bash
-    systemctl enable pisugar-server 2>/dev/null || true
-    systemctl start  pisugar-server 2>/dev/null || true
-fi
+# ── PiSugar 3 (direkt per I2C, kein Daemon) ───────────────────
+# pisugar-server crasht auf Pi Zero (ARMv6) mit SEGV → nicht verwenden
+# Stattdessen: smbus2 spricht PiSugar 3 direkt per I2C an (via requirements.txt)
+echo "PiSugar 3: wird direkt per I2C angesprochen (kein Daemon)"
 
-# Kurz warten und PiSugar-Status prüfen
-sleep 3
-if systemctl is-active --quiet pisugar-server; then
-    echo "✓ pisugar-server läuft"
-    if echo "get battery" | nc -U /tmp/pisugar-server.sock 2>/dev/null | grep -q "battery:"; then
-        echo "✓ PiSugar Socket antwortet"
-    else
-        echo "⚠ PiSugar Socket nicht erreichbar (Hardware angeschlossen?)"
-    fi
+# Alten fehlerhaften pisugar-server deaktivieren falls vorhanden
+systemctl stop    pisugar-server 2>/dev/null || true
+systemctl disable pisugar-server 2>/dev/null || true
+
+# I2C-Test
+if python3 -c "import smbus2; b=smbus2.SMBus(1); b.read_byte_data(0x57,0x2A); print('✓ PiSugar 3 erkannt')" 2>/dev/null; then
+    true
 else
-    echo "⚠ pisugar-server nicht gestartet – läuft ohne Akku-Unterstützung"
+    echo "⚠ PiSugar nicht erkannt (Hardware angeschlossen? I2C aktiv?)"
 fi
 
 # ── Systemd Service (ein einziger für alles) ──────────────────
@@ -119,7 +112,7 @@ systemctl restart bus-display
 sleep 2
 echo ""
 echo "=== Installations-Status ==="
-for SVC in pisugar-server bus-display; do
+for SVC in bus-display; do
     if systemctl is-active --quiet "$SVC"; then
         echo "  ✓ $SVC"
     else
@@ -129,6 +122,5 @@ done
 
 echo ""
 echo "=== Fertig! ==="
-echo "Log:     journalctl -u bus-display -f"
-echo "PiSugar: journalctl -u pisugar-server -f"
-echo "Web-UI:  http://$(hostname -I | awk '{print $1}'):5000"
+echo "Log:    journalctl -u bus-display -f"
+echo "Web-UI: http://$(hostname -I | awk '{print $1}'):5000"

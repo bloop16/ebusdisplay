@@ -1,9 +1,9 @@
 """
-PiSugar 3 Battery HAT Integration.
-Communicates via pisugar-server Unix socket (I2C daemon).
-Install pisugar-server: curl https://cdn.pisugar.com/release/pisugar-power-manager.sh | sudo bash
+PiSugar 3 Battery HAT Integration via direct I2C (smbus2).
+Kein Daemon nötig - funktioniert auf Pi Zero (ARMv6) ohne Binär-Kompatibilitätsprobleme.
+
+PiSugar 3 I2C-Adresse: 0x57
 """
-import socket
 import threading
 import time
 import logging
@@ -11,139 +11,104 @@ from typing import Optional, Callable
 
 logger = logging.getLogger(__name__)
 
-PISUGAR_SOCKET = '/tmp/pisugar-server.sock'
-
-
-def _pisugar_cmd(cmd: str) -> str:
-    """Send command to pisugar-server socket, return response string."""
-    try:
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.settimeout(2)
-        s.connect(PISUGAR_SOCKET)
-        s.send((cmd + '\n').encode())
-        data = b''
-        while b'\n' not in data:
-            chunk = s.recv(256)
-            if not chunk:
-                break
-            data += chunk
-        s.close()
-        return data.decode().strip()
-    except Exception as e:
-        logger.debug(f"pisugar-server '{cmd}' failed: {e}")
-        return ''
+PISUGAR3_ADDR = 0x57   # I2C-Adresse PiSugar 3
+REG_BATTERY   = 0x2A   # Akku-Prozent (0–100)
+REG_STATUS    = 0x02   # Status: Bit7=lädt, Bit0=Button
+I2C_BUS       = 1      # /dev/i2c-1
 
 
 class PiSugar:
-    """Interface to PiSugar 3 battery HAT via pisugar-server daemon."""
+    """PiSugar 3 via I2C – kein pisugar-server Daemon erforderlich."""
 
     def __init__(self, mock=False):
         self.mock = mock
         self.available = False
+        self._bus = None
         self._button_callback: Optional[Callable] = None
         self._stop_event = threading.Event()
         self._button_thread: Optional[threading.Thread] = None
 
         if not mock:
-            self.available = self._check_availability()
+            self._init_i2c()
 
-    def _check_availability(self) -> bool:
-        """Check if pisugar-server is running and responsive."""
-        resp = _pisugar_cmd('get battery')
-        available = resp.startswith('battery:')
-        if not available:
-            logger.warning("PiSugar not detected — is pisugar-server running?")
-        else:
-            logger.info("PiSugar 3 detected via pisugar-server")
-        return available
+    def _init_i2c(self):
+        try:
+            import smbus2
+            self._bus = smbus2.SMBus(I2C_BUS)
+            # Verbindung testen
+            self._bus.read_byte_data(PISUGAR3_ADDR, REG_BATTERY)
+            self.available = True
+            logger.info("PiSugar 3 erkannt (I2C direkt)")
+        except Exception as e:
+            logger.warning(f"PiSugar nicht erkannt: {e}")
+            self.available = False
 
     def get_battery_level(self) -> Optional[int]:
-        """
-        Get battery level (0-100%).
-
-        Returns:
-            Battery percentage or None if unavailable
-        """
+        """Akku-Stand 0–100%, oder None wenn nicht verfügbar."""
         if self.mock:
             return 75
-
         if not self.available:
             return None
-
-        resp = _pisugar_cmd('get battery')
         try:
-            # "battery: 75.3"
-            return int(float(resp.split(':', 1)[1].strip()))
+            val = self._bus.read_byte_data(PISUGAR3_ADDR, REG_BATTERY)
+            return max(0, min(100, val))
         except Exception:
             return None
 
     def is_charging(self) -> bool:
-        """
-        Check if battery is charging (USB power connected).
-
-        Returns:
-            True if charging or if PiSugar unavailable (assume AC)
-        """
+        """True wenn USB-Strom angeschlossen."""
         if self.mock:
             return False
-
         if not self.available:
-            return True  # Assume AC if no battery detected
-
-        resp = _pisugar_cmd('get battery_charging')
+            return True  # ohne Akku → AC-Betrieb annehmen
         try:
-            # "battery_charging: true" or "battery_charging: false"
-            return 'true' in resp.lower()
+            status = self._bus.read_byte_data(PISUGAR3_ADDR, REG_STATUS)
+            return bool(status & 0x80)
         except Exception:
             return True
 
     def register_button_callback(self, callback: Callable):
-        """
-        Register callback for button press events.
-        Polls pisugar-server every 500ms in a background thread.
-
-        Args:
-            callback: Function to call on button press
-        """
+        """Button-Callback registrieren. Wird in Hintergrund-Thread gepollt."""
         self._button_callback = callback
-
         if self.mock:
-            logger.info("[MOCK] Button callback registered")
+            logger.info("[MOCK] Button callback registriert")
             return
-
         if not self.available:
-            logger.warning("PiSugar not available, button callback skipped")
+            logger.warning("PiSugar nicht verfügbar, kein Button-Callback")
             return
-
         self._stop_event.clear()
         self._button_thread = threading.Thread(
             target=self._poll_button, daemon=True, name="pisugar-btn"
         )
         self._button_thread.start()
-        logger.info("PiSugar button polling started")
+        logger.info("PiSugar Button-Polling gestartet (I2C)")
 
     def _poll_button(self):
-        """Poll pisugar-server for button_press events in background."""
+        """Button-Status alle 300ms per I2C lesen, Flanke erkennen."""
+        prev = False
         while not self._stop_event.is_set():
             try:
-                resp = _pisugar_cmd('get button_press')
-                # "button_press: single" / "button_press: double" / "button_press: "
-                if resp.startswith('button_press:'):
-                    value = resp.split(':', 1)[1].strip()
-                    if value and value not in ('none', ''):
-                        logger.info(f"Button press detected: {value}")
-                        if self._button_callback:
-                            self._button_callback()
+                status = self._bus.read_byte_data(PISUGAR3_ADDR, REG_STATUS)
+                pressed = bool(status & 0x01)
+                if pressed and not prev:
+                    logger.info("Button gedrückt (I2C)")
+                    if self._button_callback:
+                        self._button_callback()
+                prev = pressed
             except Exception as e:
-                logger.debug(f"Button poll error: {e}")
-            time.sleep(0.5)
+                logger.debug(f"Button poll Fehler: {e}")
+            time.sleep(0.3)
 
     def stop(self):
-        """Stop button polling thread."""
+        """Polling-Thread stoppen."""
         self._stop_event.set()
+        if self._bus:
+            try:
+                self._bus.close()
+            except Exception:
+                pass
 
     def get_status_dict(self) -> dict:
-        """Get complete power status as dictionary."""
         return {
             'battery_level': self.get_battery_level(),
             'charging': self.is_charging(),
