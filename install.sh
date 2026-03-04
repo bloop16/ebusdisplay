@@ -11,8 +11,9 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-ACTUAL_USER=${SUDO_USER:-pi}
-INSTALL_DIR="/home/${ACTUAL_USER}/bus-display"
+# Verzeichnis = wo install.sh liegt (kein Hardcode auf /home/pi)
+INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
+ACTUAL_USER=${SUDO_USER:-$(logname 2>/dev/null || stat -c '%U' "$INSTALL_DIR")}
 
 echo "Benutzer: $ACTUAL_USER"
 echo "Verzeichnis: $INSTALL_DIR"
