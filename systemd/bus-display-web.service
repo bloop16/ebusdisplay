@@ -6,7 +6,8 @@ After=network.target
 Type=simple
 User=pi
 WorkingDirectory=/home/pi/bus-display
-ExecStart=/usr/bin/python3 -m src.web.app
+Environment=PYTHONPATH=/home/pi/bus-display
+ExecStart=/usr/bin/python3 -m flask --app src.web.app:create_app run --host=0.0.0.0 --port=5000
 Restart=always
 RestartSec=10
 StandardOutput=journal

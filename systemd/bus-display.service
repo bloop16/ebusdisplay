@@ -1,12 +1,13 @@
 [Unit]
-Description=Bus Display Controller
-After=network-online.target
-Wants=network-online.target
+Description=Bus Display (E-Ink + Web-UI)
+After=network-online.target pisugar-server.service
+Wants=network-online.target pisugar-server.service
 
 [Service]
 Type=simple
 User=pi
 WorkingDirectory=/home/pi/bus-display
+Environment=PYTHONPATH=/home/pi/bus-display
 ExecStart=/usr/bin/python3 /home/pi/bus-display/main.py --continuous
 Restart=always
 RestartSec=10

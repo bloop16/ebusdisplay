@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import time, json, logging, re, subprocess
+import time, json, logging, threading
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -15,6 +15,18 @@ logger = logging.getLogger(__name__)
 MAX_SLEEP_SEC = 20 * 60   # 20 Minuten
 # Puffer nach einer Abfahrt bevor neu geladen wird
 DEPARTURE_BUFFER_SEC = 45
+
+
+def _start_web_server():
+    """Flask Web-UI in Hintergrund-Thread starten."""
+    try:
+        from src.web.app import create_app
+        app = create_app()
+        log = logging.getLogger('werkzeug')
+        log.setLevel(logging.WARNING)  # Flask-Requests nicht im Haupt-Log
+        app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+    except Exception as e:
+        logger.error(f"Web-UI Fehler: {e}")
 
 
 class BusDisplay:
@@ -129,6 +141,14 @@ if __name__ == '__main__':
     p.add_argument('--mock-display', action='store_true')
     p.add_argument('--mock-battery', action='store_true')
     p.add_argument('--continuous', action='store_true')
+    p.add_argument('--no-web', action='store_true', help='Web-UI nicht starten')
     args = p.parse_args()
+
+    # Web-UI als Daemon-Thread starten (stoppt automatisch mit dem Hauptprozess)
+    if not args.no_web:
+        web_thread = threading.Thread(target=_start_web_server, daemon=True, name='web-ui')
+        web_thread.start()
+        logger.info("Web-UI gestartet auf http://0.0.0.0:5000")
+
     d = BusDisplay(mock_display=args.mock_display, mock_battery=args.mock_battery)
     d.run_continuous() if args.continuous else d.run_once()

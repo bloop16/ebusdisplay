@@ -25,7 +25,7 @@ apt-get install -y \
     python3-rpi.gpio \
     python3-spidev \
     python3-flask \
-    git curl
+    git curl netcat-openbsd
 
 # ── SPI aktivieren (Waveshare Display) ───────────────────────
 echo "SPI aktivieren..."
@@ -62,20 +62,54 @@ pip3 install -r requirements.txt \
 echo "PiSugar 3 installieren..."
 curl -s https://cdn.pisugar.com/release/pisugar-power-manager.sh | bash
 
-# ── Systemd Services ──────────────────────────────────────────
-echo "Services einrichten..."
+# PiSugar installiert den Service als 'pisugar-server'
+echo "PiSugar Service aktivieren..."
+systemctl enable pisugar-server 2>/dev/null || true
+systemctl start  pisugar-server 2>/dev/null || true
 
-for SERVICE in bus-display bus-display-web; do
-    cp "$INSTALL_DIR/systemd/${SERVICE}.service" /etc/systemd/system/
-    sed -i "s|/home/pi/bus-display|$INSTALL_DIR|g" /etc/systemd/system/${SERVICE}.service
-    sed -i "s|User=pi|User=$ACTUAL_USER|g"          /etc/systemd/system/${SERVICE}.service
-done
+# Kurz warten und Status prüfen
+sleep 3
+if systemctl is-active --quiet pisugar-server; then
+    echo "✓ pisugar-server läuft"
+    # Verbindung zum Socket testen
+    if echo "get battery" | nc -U /tmp/pisugar-server.sock 2>/dev/null | grep -q "battery:"; then
+        echo "✓ PiSugar Socket antwortet (Akku erkannt)"
+    else
+        echo "⚠ PiSugar Socket nicht erreichbar (Hardware angeschlossen?)"
+    fi
+else
+    echo "⚠ pisugar-server nicht gestartet – läuft ohne Akku-Unterstützung"
+fi
+
+# ── Systemd Service (ein einziger für alles) ──────────────────
+echo "Bus Display Service einrichten..."
+
+cp "$INSTALL_DIR/systemd/bus-display.service" /etc/systemd/system/
+sed -i "s|/home/pi/bus-display|$INSTALL_DIR|g" /etc/systemd/system/bus-display.service
+sed -i "s|User=pi|User=$ACTUAL_USER|g"          /etc/systemd/system/bus-display.service
+
+# Alten Web-Service entfernen falls vorhanden
+systemctl disable bus-display-web 2>/dev/null || true
+rm -f /etc/systemd/system/bus-display-web.service
 
 systemctl daemon-reload
-systemctl enable bus-display bus-display-web
-systemctl start bus-display bus-display-web
+systemctl enable bus-display
+systemctl start  bus-display
+
+# ── Status-Übersicht ──────────────────────────────────────────
+sleep 2
+echo ""
+echo "=== Installations-Status ==="
+for SVC in pisugar-server bus-display; do
+    if systemctl is-active --quiet "$SVC"; then
+        echo "  ✓ $SVC"
+    else
+        echo "  ✗ $SVC  ← Fehler! (journalctl -u $SVC)"
+    fi
+done
 
 echo ""
 echo "=== Fertig! ==="
-echo "Display-Log: journalctl -u bus-display -f"
-echo "Web-UI:      http://$(hostname -I | awk '{print $1}'):5000"
+echo "Log:     journalctl -u bus-display -f"
+echo "PiSugar: journalctl -u pisugar-server -f"
+echo "Web-UI:  http://$(hostname -I | awk '{print $1}'):5000"
